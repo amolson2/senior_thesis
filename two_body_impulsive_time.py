@@ -84,12 +84,7 @@ def final_constraint(control) -> float:
     desired_state = coe2rv(classical_orbital_elements=classical_orbital_elements, num_dimensions=num_dimensions,
                                 mu=earth.mu_for_children)
     desired_state = reshape(desired_state, (1, 2*num_dimensions))
-    error = (final_state-desired_state)
-    if num_dimensions == 3:
-        error /= array([earth.equatorial_radius, 1., 1.])
-    else:
-        # error /= array([earth.equatorial_radius, 1.])
-        error = norm(error)
+    error = (final_state-desired_state)/norm(desired_state)
     return error
 
 
