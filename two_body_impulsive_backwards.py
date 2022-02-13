@@ -96,7 +96,7 @@ upper_bounds = 3. * ones(num_dimensions*2,)
 bounds = Bounds(lb=lower_bounds, ub=upper_bounds)
 
 nonlinear_constraint = NonlinearConstraint(final_constraint, -0.01, 0.01, jac='2-point', hess=BFGS())
-num_shifts = 200
+num_shifts = 5
 
 class Spacecraft:
     def __init__(self):
@@ -106,32 +106,46 @@ class Spacecraft:
 
     def objective_shifted(self, control) -> float:
         j = absolute(norm(control) - self.shift_cost - self.shift_parameter)
-        # self.solution_history.append(control)
+        self.solution_history.append(control)
         return j
 
 spacecraft = Spacecraft()
+level_count = [5, 4, 3, 2, 1]
 initial_control = zeros(2*num_dimensions)
-final_solution_history = zeros((num_shifts, 4))
-first_burn_location = zeros((num_shifts, 2))
-second_burn_location = zeros((num_shifts, 2))
-
-for i in range(num_shifts):
-    perturbation = 0.1*(1-(2*npr.rand(2*num_dimensions)))
-    initial_control += perturbation
-    result = minimize(spacecraft.objective_shifted, initial_control,
-                    method='trust-constr', jac='2-point', hess=BFGS(),
-                    constraints=[nonlinear_constraint],
-                    options={'verbose': 1},
-                    bounds=bounds)
-    final_control = result.x
-    first_burn_location[i] = simulation(final_control)[0][0:num_dimensions]
-    second_burn_location[i] = simulation(final_control)[-1][0:num_dimensions]
-    final_solution_history[i] = final_control
-    initial_control = final_control
-    spacecraft.shift_parameter = 0.001
+final_solution_history = zeros((sum(level_count), 4))
+print(final_solution_history.shape)
+first_burn_location = zeros((sum(level_count), 2))
+second_burn_location = zeros((sum(level_count), 2))
+total_count = 0
+for i in range(len(level_count)):
+    perturbation = 0.1*(1-(2*npr.rand(level_count[i], 2*num_dimensions)))
+    print('level = {}'.format(i+1))
+    for j in range(level_count[i]):
+        # print(j)
+        initial_control += perturbation[j]
+        # print(perturbation[j])
+        result = minimize(spacecraft.objective_shifted, initial_control,
+                        method='trust-constr', jac='2-point', hess=BFGS(),
+                        constraints=[nonlinear_constraint],
+                        options={'verbose': 1},
+                        bounds=bounds)
+        final_control = result.x
+        first_burn_location[total_count] = simulation(final_control)[0][0:num_dimensions]
+        second_burn_location[total_count] = simulation(final_control)[-1][0:num_dimensions]
+        final_solution_history[total_count] = final_control
+        print(norm(final_control))
+        initial_control = final_control
+        total_count += 1
+        # if j == 0:
+        #     future_shift_cost = norm(final_control)
     spacecraft.shift_cost = norm(final_control)
+    spacecraft.shift_parameter = 0.001
+    # level_count = round(level_count/2, decimals=0)
+    # level_count -= 1
+    # print('next level: {} iterations'.format(level_count))
+    # print(level_count)
 
-savez('0.1_200_0.001_take2', final_solution_history, first_burn_location, second_burn_location)
+# savez('0.1_200_0.001_take2', final_solution_history, first_burn_location, second_burn_location)
 final_solution_history_norm = norm(final_solution_history, axis=1)
 first_burn_magnitude = norm(final_solution_history[:, 0:2], axis=1)
 second_burn_magnitude = norm(final_solution_history[:, 2:4], axis=1)
@@ -169,7 +183,6 @@ z = norm(final_solution_history[:, 2:4], axis=1)
 ax.scatter(final_solution_history[:, 2], final_solution_history[:, 3], z, c=z, cmap='viridis', linewidth=0.5)
 plt.title('second burn 3D scatter')
 
-
 colors = norm(final_solution_history[:, 0:2], axis=1)
 normalize = matplotlib.colors.Normalize()
 normalize.autoscale(colors)
@@ -189,5 +202,35 @@ plt.quiver(second_burn_location[:, 0], second_burn_location[:, 1], final_solutio
 plt.title('second burn quiver')
 plt.xlabel('X location of second burn (km)')
 plt.ylabel('Y location of second burn (km')
+
+solution_history = reshape(spacecraft.solution_history, (-1, 4))
+solution_history_norm = norm(solution_history, axis=1)
+first_burn_magnitude = norm(solution_history[:, 0:2], axis=1)
+second_burn_magnitude = norm(solution_history[:, 2:4], axis=1)
+
+plt.figure()
+plt.scatter(first_burn_magnitude, second_burn_magnitude)
+plt.title('Magnitude of first burn vs. second burn')
+
+plt.figure()
+plt.plot(solution_history_norm, 'bo')
+plt.title('Final solution history')
+plt.xlabel('Solution number')
+plt.ylabel('Total magnitude of control')
+
+# first burn 3D scatter
+plt.figure()
+ax = plt.axes(projection='3d')
+z = norm(solution_history[:, 0:2], axis=1)
+ax.scatter(solution_history[:, 0], solution_history[:, 1], z, c=z, cmap='viridis', linewidth=0.5)
+plt.title('first burn 3D scatter')
+
+# second burn 3D scatter
+plt.figure()
+ax = plt.axes(projection='3d')
+z = norm(solution_history[:, 2:4], axis=1)
+ax.scatter(solution_history[:, 2], solution_history[:, 3], z, c=z, cmap='viridis', linewidth=0.5)
+plt.title('second burn 3D scatter')
+
 
 plt.show()

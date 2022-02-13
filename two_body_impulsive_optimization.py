@@ -113,7 +113,7 @@ result = minimize(objective_function, initial_control,
                   bounds=bounds)
 
 print(result.x)
-
+print(norm(result.x))
 # print(simulation(result.x)[0])
 # print(simulation(result.x)[-1])
 

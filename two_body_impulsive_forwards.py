@@ -109,6 +109,7 @@ class Spacecraft:
         cost = norm(control)
         if cost < 0.3:
             self.solution_history.append(control)
+            # print(self.solution_history)
         return cost
 
 spacecraft = Spacecraft()
@@ -117,10 +118,12 @@ second_burn_location = []
 result = minimize(spacecraft.objective_function, initial_control,
                   method='trust-constr', jac='2-point', hess=BFGS(),
                   constraints=[nonlinear_constraint],
-                  options={'verbose': 1},
+                  options={'verbose': 3},
                   bounds=bounds)
 
 final_control = result.x
+print(result.constr)
+print(result.v)
 # spacecraft.solution_history.append(final_control)
 first_burn_location.append(simulation(final_control)[0][0:num_dimensions])
 second_burn_location.append(simulation(final_control)[-1][0:num_dimensions])
@@ -136,7 +139,7 @@ for i in range(num_perturbations):
     result = minimize(spacecraft.objective_function, perturbations[i,:],
                     method='trust-constr', jac='2-point', hess=BFGS(),
                     constraints=[nonlinear_constraint],
-                    options={'verbose': 1},
+                    options={'verbose': 2},
                     bounds=bounds)
     final_control = result.x
     # spacecraft.solution_history.append(final_control)
