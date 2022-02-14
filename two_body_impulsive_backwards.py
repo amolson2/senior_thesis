@@ -96,7 +96,6 @@ upper_bounds = 3. * ones(num_dimensions*2,)
 bounds = Bounds(lb=lower_bounds, ub=upper_bounds)
 
 nonlinear_constraint = NonlinearConstraint(final_constraint, -0.01, 0.01, jac='2-point', hess=BFGS())
-num_shifts = 5
 
 class Spacecraft:
     def __init__(self):
@@ -110,42 +109,43 @@ class Spacecraft:
         return j
 
 spacecraft = Spacecraft()
-level_count = [5, 4, 3, 2, 1]
-initial_control = zeros(2*num_dimensions)
-final_solution_history = zeros((sum(level_count), 4))
-print(final_solution_history.shape)
-first_burn_location = zeros((sum(level_count), 2))
-second_burn_location = zeros((sum(level_count), 2))
+level_count = ones(10).astype(int)
+level_count[0] = 10
+level_count[1:3] = 2
+
+final_solution_history = zeros((350, 4))
+first_burn_location = zeros((350, 2))
+second_burn_location = zeros((350, 2))
 total_count = 0
+last_level_solution_history = zeros((1, 4))
+
 for i in range(len(level_count)):
-    perturbation = 0.1*(1-(2*npr.rand(level_count[i], 2*num_dimensions)))
+    level_solution_history = zeros((len(last_level_solution_history)*level_count[i], 2*num_dimensions))
     print('level = {}'.format(i+1))
-    for j in range(level_count[i]):
-        # print(j)
-        initial_control += perturbation[j]
-        # print(perturbation[j])
-        result = minimize(spacecraft.objective_shifted, initial_control,
-                        method='trust-constr', jac='2-point', hess=BFGS(),
-                        constraints=[nonlinear_constraint],
-                        options={'verbose': 1},
-                        bounds=bounds)
-        final_control = result.x
-        first_burn_location[total_count] = simulation(final_control)[0][0:num_dimensions]
-        second_burn_location[total_count] = simulation(final_control)[-1][0:num_dimensions]
-        final_solution_history[total_count] = final_control
-        print(norm(final_control))
-        initial_control = final_control
-        total_count += 1
-        # if j == 0:
-        #     future_shift_cost = norm(final_control)
+    for k in range(len(last_level_solution_history)):
+        initial_control = last_level_solution_history[k]
+        for j in range(level_count[i]):
+            perturbation = 0.1*(1-(2*npr.rand(2*num_dimensions)))
+            initial_control += perturbation
+            result = minimize(spacecraft.objective_shifted, initial_control,
+                            method='trust-constr', jac='2-point', hess=BFGS(),
+                            constraints=[nonlinear_constraint],
+                            options={'verbose': 1},
+                            bounds=bounds)
+            final_control = result.x
+            print(norm(final_control))
+            level_solution_history[j] = final_control
+            final_solution_history[total_count] = final_control
+            first_burn_location[total_count] = simulation(final_control)[0][0:num_dimensions]
+            second_burn_location[total_count] = simulation(final_control)[-1][0:num_dimensions]
+            total_count += 1
+    last_level_solution_history = level_solution_history
     spacecraft.shift_cost = norm(final_control)
     spacecraft.shift_parameter = 0.001
-    # level_count = round(level_count/2, decimals=0)
-    # level_count -= 1
-    # print('next level: {} iterations'.format(level_count))
-    # print(level_count)
 
-# savez('0.1_200_0.001_take2', final_solution_history, first_burn_location, second_burn_location)
+solution_history = reshape(spacecraft.solution_history, (-1, 4))
+savez('first_attempt_backwards', solution_history, final_solution_history, first_burn_location, second_burn_location)
+
 final_solution_history_norm = norm(final_solution_history, axis=1)
 first_burn_magnitude = norm(final_solution_history[:, 0:2], axis=1)
 second_burn_magnitude = norm(final_solution_history[:, 2:4], axis=1)
@@ -154,7 +154,6 @@ second_burn_magnitude = norm(final_solution_history[:, 2:4], axis=1)
 plt.figure()
 plt.scatter(first_burn_magnitude, second_burn_magnitude)
 plt.title('Magnitude of first burn vs. second burn')
-
 
 # scatter plot - final solution history (just optimal solutions)
 plt.figure()
