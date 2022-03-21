@@ -9,18 +9,22 @@ from numpy.linalg import norm
 from scipy.optimize import Bounds, NonlinearConstraint, BFGS, minimize
 import matplotlib.pyplot as plt
 
-num_dimensions = 3
-initial_alt = 200000.
-final_alt = 300000.
+num_dimensions = 2
 
-initial_time = 0
-transfer_time = 24. * 3600.
-# transfer_time = 132856.59730501875/2
 earth = Earth()
 moon = Moon()
+initial_alt = 200000.
+final_alt = 250000.
+# transfer_time = 132856.59730501875/2
+
 
 constraint_tol = 0.01
 max_dv = 3.
+
+
+def get_orbital_period(semimajor: float,
+                       mu: float) -> float:
+    return 2 * pi * sqrt(((semimajor ** 3) / mu))
 
 
 def get_initial_state(alt):
@@ -30,6 +34,12 @@ def get_initial_state(alt):
     period = 2 * pi * sqrt(((semimajor ** 3) / earth.mu_for_children))
     return position, velocity, period
 
+
+initial_period = get_orbital_period(earth.equatorial_radius+initial_alt, earth.mu_for_children)
+hohmann_semimajor = ((2*earth.equatorial_radius)+initial_alt+final_alt)/2
+hohmann_period = get_orbital_period(hohmann_semimajor, earth.mu_for_children)/2
+initial_time = 0
+transfer_time = hohmann_period
 
 def twobody_to_threebody(position, velocity, period):
     state = concatenate((position, velocity))
@@ -46,7 +56,7 @@ def simulation_2b(control: ndarray) -> ndarray:
     eom = TwoBody(primary=earth, dimension=num_dimensions)
     rk54 = RKF54()
     rk54.add_drift_vector_field(vector_field=eom.evaluate)
-    rk54.evaluate(s=state, t0=0., tf=initial_time * period)
+    rk54.evaluate(s=state, t0=0., tf=initial_time)
 
     # add initial burn
     position = rk54.states[-1][0:3]
@@ -78,7 +88,7 @@ def final_constraint_2b(control) -> float:
     rk54.evaluate(s=state, t0=0., tf=period/2.)
     desired_state = rk54.states[-1]
     error = norm((final_state-desired_state)/norm(desired_state))
-    print(error)
+    print('two body error: {}'.format(error))
     return error
 
 
@@ -92,7 +102,7 @@ def simulation_3b(control: ndarray) -> ndarray:
     # propagate for initial time
     rk54 = RKF54()
     rk54.add_drift_vector_field(vector_field=eom.evaluate)
-    rk54.evaluate(s=state, t0=0., tf=initial_time*period)
+    rk54.evaluate(s=state, t0=0., tf=initial_time)
 
     # add initial burn
     position = rk54.states[-1][0:3]
@@ -125,7 +135,7 @@ def final_constraint_3b(control) -> float:
     rk54.evaluate(s=state, t0=0., tf=period/2.)
     desired_state = rk54.states[-1]
     error = norm((final_state - desired_state) / norm(desired_state))
-    print(error)
+    print('three body error: {}'.format(error))
     return error
 
 
@@ -143,19 +153,19 @@ nonlinear_constraint_2b = NonlinearConstraint(final_constraint_2b, -constraint_t
 nonlinear_constraint_3b = NonlinearConstraint(final_constraint_3b, -constraint_tol, constraint_tol, jac='2-point', hess=BFGS())
 
 # two body version of optimization
-# initial_control = [-1.45530073e-04,  1.80307396e-01, -1.23255470e-04, -1.75698647e-01]
-# initial_control = array([0, 0, 0, 0])
-# result_2b = minimize(objective_function, initial_control,
-#                     method='trust-constr', jac='2-point', hess=BFGS(),
-#                     constraints=[nonlinear_constraint_2b],
-#                     options={'verbose': 1, 'maxiter': 1000},
-#                     bounds=bounds)
-# print(result_2b.x)
-# print(norm(result_2b.x[0:4]))
+initial_control = [-1.45530073e-04,  1.80307396e-01, -1.23255470e-04, -1.75698647e-01]
+result_2b = minimize(objective_function, initial_control,
+                    method='trust-constr', jac='2-point', hess=BFGS(),
+                    constraints=[nonlinear_constraint_2b],
+                    options={'verbose': 1, 'maxiter': 1000},
+                    bounds=bounds)
+print(result_2b.x)
+print(norm(result_2b.x[0:4]))
 
 
 # three body version
-initial_control = array([1.23136730e-02, 2.42849188e-01, 2.42287465e-08, -3.00501047e-09])
+initial_control = result_2b.x
+# initial_control = array([1.23136730e-02, 2.42849188e-01, 2.42287465e-08, -3.00501047e-09])
 result_3b = minimize(objective_function, initial_control,
                     method='trust-constr', jac='2-point', hess=BFGS(),
                     constraints=[nonlinear_constraint_3b],
@@ -189,13 +199,13 @@ def generate_orbit_3b(alt):
     return rk54.states
 
 
-# plt.figure()
-# states = generate_orbit_2b(initial_alt)
-# plt.plot(states[:, 0], states[:, 1], 'r')
-# states = generate_orbit_2b(final_alt)
-# plt.plot(states[:, 0], states[:, 1], 'b')
-# states = simulation_2b(result_2b.x)
-# plt.plot(states[:, 0], states[:, 1], 'g')
+plt.figure()
+states = generate_orbit_2b(initial_alt)
+plt.plot(states[:, 0], states[:, 1], 'r')
+states = generate_orbit_2b(final_alt)
+plt.plot(states[:, 0], states[:, 1], 'b')
+states = simulation_2b(result_2b.x)
+plt.plot(states[:, 0], states[:, 1], 'g')
 
 plt.figure()
 states = generate_orbit_3b(initial_alt)
