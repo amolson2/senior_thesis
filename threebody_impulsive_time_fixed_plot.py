@@ -43,8 +43,8 @@ def twobody_to_threebody(position, velocity, period):
 
 initial_period = get_orbital_period(earth.equatorial_radius+initial_alt, earth.mu_for_children)
 hohmann_period = get_orbital_period(hohmann_semimajor, earth.mu_for_children)/2
-initial_time = linspace(0*initial_period, 2*initial_period, num=20).astype(float)
-transfer_time = linspace(0.25*hohmann_period, 4*hohmann_period, num=30).astype(float)
+initial_time = linspace(0*initial_period, 2*initial_period, num=4).astype(float)
+transfer_time = linspace(0.25*hohmann_period, 4*hohmann_period, num=5).astype(float)
 final_solution_history = empty((len(initial_time)*len(transfer_time), 4))
 feasibility = empty(len(initial_time)*len(transfer_time), dtype=bool)
 optimality = empty(len(initial_time)*len(transfer_time), dtype=bool)
@@ -68,7 +68,7 @@ for i in range(len(initial_time)):
             # propagate for initial time
             rk54 = RKF54()
             rk54.add_drift_vector_field(vector_field=eom.evaluate)
-            rk54.evaluate(s=state, t0=0., tf=initial_time[i])
+            rk54.evaluate(s=state, t0=0., tf=initial_time[i] / eom.normalized_units['TimeUnit'])
 
             # add initial burn
             position = rk54.states[-1][0:3]

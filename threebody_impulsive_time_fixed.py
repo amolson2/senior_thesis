@@ -38,8 +38,8 @@ def get_initial_state(alt):
 initial_period = get_orbital_period(earth.equatorial_radius+initial_alt, earth.mu_for_children)
 hohmann_semimajor = ((2*earth.equatorial_radius)+initial_alt+final_alt)/2
 hohmann_period = get_orbital_period(hohmann_semimajor, earth.mu_for_children)/2
-initial_time = 0
-transfer_time = hohmann_period
+initial_time = 2*initial_period
+transfer_time = 3*hohmann_period
 
 def twobody_to_threebody(position, velocity, period):
     state = concatenate((position, velocity))
@@ -102,7 +102,7 @@ def simulation_3b(control: ndarray) -> ndarray:
     # propagate for initial time
     rk54 = RKF54()
     rk54.add_drift_vector_field(vector_field=eom.evaluate)
-    rk54.evaluate(s=state, t0=0., tf=initial_time)
+    rk54.evaluate(s=state, t0=0., tf=initial_time/eom.normalized_units['TimeUnit'])
 
     # add initial burn
     position = rk54.states[-1][0:3]
@@ -153,26 +153,27 @@ nonlinear_constraint_2b = NonlinearConstraint(final_constraint_2b, -constraint_t
 nonlinear_constraint_3b = NonlinearConstraint(final_constraint_3b, -constraint_tol, constraint_tol, jac='2-point', hess=BFGS())
 
 # two body version of optimization
-initial_control = [-1.45530073e-04,  1.80307396e-01, -1.23255470e-04, -1.75698647e-01]
-result_2b = minimize(objective_function, initial_control,
-                    method='trust-constr', jac='2-point', hess=BFGS(),
-                    constraints=[nonlinear_constraint_2b],
-                    options={'verbose': 1, 'maxiter': 1000},
-                    bounds=bounds)
-print(result_2b.x)
-print(norm(result_2b.x[0:4]))
+# initial_control = [-1.45530073e-04,  1.80307396e-01, -1.23255470e-04, -1.75698647e-01]
+# result_2b = minimize(objective_function, initial_control,
+#                     method='trust-constr', jac='2-point', hess=BFGS(),
+#                     constraints=[nonlinear_constraint_2b],
+#                     options={'verbose': 1, 'maxiter': 1000},
+#                     bounds=bounds)
+# print(result_2b.x)
+# print(norm(result_2b.x[0:4]))
 
 
 # three body version
-initial_control = result_2b.x
+# initial_control = result_2b.x
 # initial_control = array([1.23136730e-02, 2.42849188e-01, 2.42287465e-08, -3.00501047e-09])
-result_3b = minimize(objective_function, initial_control,
-                    method='trust-constr', jac='2-point', hess=BFGS(),
-                    constraints=[nonlinear_constraint_3b],
-                    options={'verbose': 1, 'maxiter': 1000},
-                    bounds=bounds)
-print(result_3b.x)
-print(norm(result_3b.x[0:4]))
+# initial_control = [0, 0, 0, 0]
+# result_3b = minimize(objective_function, initial_control,
+#                     method='trust-constr', jac='2-point', hess=BFGS(),
+#                     constraints=[nonlinear_constraint_3b],
+#                     options={'verbose': 1, 'maxiter': 1000},
+#                     bounds=bounds)
+# print(result_3b.x)
+# print(norm(result_3b.x[0:4]))
 
 def generate_orbit_2b(alt):
     position, velocity, period = get_initial_state(alt)
@@ -185,7 +186,7 @@ def generate_orbit_2b(alt):
     return rk54.states
 
 
-def generate_orbit_3b(alt):
+def generate_orbit_3b(alt, time):
     # determine orbit in two body
     position, velocity, period = get_initial_state(alt)
     # convert to three body
@@ -195,23 +196,26 @@ def generate_orbit_3b(alt):
     eom = CR3BP(primary=earth, secondary=moon)
     rk54 = RKF54()
     rk54.add_drift_vector_field(vector_field=eom.evaluate)
-    rk54.evaluate(s=state, t0=0., tf=period)
+    rk54.evaluate(s=state, t0=0., tf=period*time)
     return rk54.states
 
 
-plt.figure()
-states = generate_orbit_2b(initial_alt)
-plt.plot(states[:, 0], states[:, 1], 'r')
-states = generate_orbit_2b(final_alt)
-plt.plot(states[:, 0], states[:, 1], 'b')
-states = simulation_2b(result_2b.x)
-plt.plot(states[:, 0], states[:, 1], 'g')
+# plt.figure()
+# states = generate_orbit_2b(initial_alt)
+# plt.plot(states[:, 0], states[:, 1], 'r')
+# states = generate_orbit_2b(final_alt)
+# plt.plot(states[:, 0], states[:, 1], 'b')
+# states = simulation_2b(result_2b.x)
+# plt.plot(states[:, 0], states[:, 1], 'g')
 
+# result = [-0.03403575, -0.04577415, -0.00303472, -0.04726715]
 plt.figure()
-states = generate_orbit_3b(initial_alt)
+states = generate_orbit_3b(initial_alt, 1)
 plt.plot(states[:, 0], states[:, 1], 'r')
-states = generate_orbit_3b(final_alt)
-plt.plot(states[:, 0], states[:, 1], 'b')
-states = simulation_3b(result_3b.x)
+states = generate_orbit_3b(final_alt, 0.5)
+plt.plot(states[:, 0], states[:, 1], 'm')
+states = generate_orbit_3b(final_alt, 1)
+plt.plot(states[:, 0], states[:, 1], ':b')
+states = simulation_3b(result)
 plt.plot(states[:, 0], states[:, 1], 'g')
 plt.show()
