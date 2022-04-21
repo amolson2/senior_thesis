@@ -6,9 +6,6 @@ from numpy import array, concatenate, ndarray, pi, sqrt, ones, zeros, savez, abs
 import numpy.random as npr
 from numpy.linalg import norm
 from scipy.optimize import Bounds, NonlinearConstraint, BFGS, minimize
-import matplotlib.pyplot as plt
-import matplotlib
-import matplotlib.cm as cm
 num_dimensions = 2
 
 def generate_initial_orbit():
@@ -96,8 +93,7 @@ bounds = Bounds(lb=lower_bounds, ub=upper_bounds)
 nonlinear_constraint = NonlinearConstraint(final_constraint, -0.01, 0.01, jac='2-point', hess=BFGS())
 
 initial_control = [-1.45530073e-04,  1.80307396e-01, -1.23255470e-04, -1.75698647e-01]
-# initial_control = array([0., 1., 0., 0., -1., 0.])
-# initial_control = array([-1.45498296e-04, 1.80307395e-01, -1.23270635e-04, 3.69840525e-09])
+
 
 class Spacecraft:
     def __init__(self):
@@ -107,7 +103,8 @@ class Spacecraft:
     def objective_function(self, control) -> float:
         # print('cost: {}'.format(norm(control)))
         cost = norm(control)
-        if cost < 0.3:
+        error = final_constraint(control)
+        if error < 0.01:
             self.solution_history.append(control)
             # print(self.solution_history)
         return cost
@@ -118,13 +115,10 @@ second_burn_location = []
 result = minimize(spacecraft.objective_function, initial_control,
                   method='trust-constr', jac='2-point', hess=BFGS(),
                   constraints=[nonlinear_constraint],
-                  options={'verbose': 3},
+                  options={'verbose': 1},
                   bounds=bounds)
 
 final_control = result.x
-print(result.constr)
-print(result.v)
-# spacecraft.solution_history.append(final_control)
 first_burn_location.append(simulation(final_control)[0][0:num_dimensions])
 second_burn_location.append(simulation(final_control)[-1][0:num_dimensions])
 num_perturbations = 100
@@ -139,10 +133,9 @@ for i in range(num_perturbations):
     result = minimize(spacecraft.objective_function, perturbations[i,:],
                     method='trust-constr', jac='2-point', hess=BFGS(),
                     constraints=[nonlinear_constraint],
-                    options={'verbose': 2},
+                    options={'verbose': 1},
                     bounds=bounds)
     final_control = result.x
-    # spacecraft.solution_history.append(final_control)
     first_burn_location.append(simulation(final_control)[0][0:num_dimensions])
     second_burn_location.append(simulation(final_control)[-1][0:num_dimensions])
 
@@ -151,30 +144,4 @@ solution_history_norm = norm(solution_history, axis=1)
 first_burn_magnitude = norm(solution_history[:, 0:2], axis=1)
 second_burn_magnitude = norm(solution_history[:, 2:4], axis=1)
 
-plt.figure()
-plt.scatter(first_burn_magnitude, second_burn_magnitude)
-plt.title('Magnitude of first burn vs. second burn')
-
-plt.figure()
-plt.plot(solution_history_norm, 'bo')
-plt.title('Final solution history')
-plt.xlabel('Solution number')
-plt.ylabel('Total magnitude of control')
-
-# first burn 3D scatter
-plt.figure()
-ax = plt.axes(projection='3d')
-z = norm(solution_history[:, 0:2], axis=1)
-ax.scatter(solution_history[:, 0], solution_history[:, 1], z, c=z, cmap='viridis', linewidth=0.5)
-plt.title('first burn 3D scatter')
-
-# second burn 3D scatter
-plt.figure()
-ax = plt.axes(projection='3d')
-z = norm(solution_history[:, 2:4], axis=1)
-ax.scatter(solution_history[:, 2], solution_history[:, 3], z, c=z, cmap='viridis', linewidth=0.5)
-plt.title('second burn 3D scatter')
-
-# two burns
-
-plt.show()
+savez('saving_solutions', solution_history, first_burn_location, second_burn_location)
