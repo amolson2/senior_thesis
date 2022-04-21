@@ -109,19 +109,23 @@ class Spacecraft:
         return j
 
 spacecraft = Spacecraft()
-level_count = ones(10).astype(int)
-level_count[0] = 10
-level_count[1:3] = 2
-
-final_solution_history = zeros((350, 4))
-first_burn_location = zeros((350, 2))
-second_burn_location = zeros((350, 2))
+level_count = ones(200).astype(int)
+final_solution_history = zeros((200, 4))
+first_burn_location = zeros((200, 2))
+second_burn_location = zeros((200, 2))
+# level_count = ones(10).astype(int)
+# level_count[0] = 10
+# level_count[1:3] = 2
+#
+# final_solution_history = zeros((350, 4))
+# first_burn_location = zeros((350, 2))
+# second_burn_location = zeros((350, 2))
 total_count = 0
 last_level_solution_history = zeros((1, 4))
 
 for i in range(len(level_count)):
     level_solution_history = zeros((len(last_level_solution_history)*level_count[i], 2*num_dimensions))
-    print('level = {}'.format(i+1))
+    # print('level = {}'.format(i+1))
     for k in range(len(last_level_solution_history)):
         initial_control = last_level_solution_history[k]
         for j in range(level_count[i]):
@@ -133,7 +137,7 @@ for i in range(len(level_count)):
                             options={'verbose': 1},
                             bounds=bounds)
             final_control = result.x
-            print(norm(final_control))
+            # print(norm(final_control))
             level_solution_history[j] = final_control
             final_solution_history[total_count] = final_control
             first_burn_location[total_count] = simulation(final_control)[0][0:num_dimensions]
