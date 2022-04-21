@@ -30,25 +30,11 @@ initial_period = get_orbital_period(earth.equatorial_radius + initial_alt, earth
 hohmann_semimajor = ((2 * earth.equatorial_radius) + initial_alt + final_alt) / 2
 hohmann_period = (get_orbital_period(hohmann_semimajor, earth.mu_for_children) / 2) / eom.normalized_units['TimeUnit']
 
-# npzfile = load('three_body_surface_plot_data_1.npz')
-npzfile = load('threebody_SLSQP_250000.npz')
-npzfile1 = load('threebody_SLSQP_250000_0.0001_2.npz')
-# npzfile = load('three_body_surface_plot_big.npz')
-# npzfile1 = load('threebody_BFGS_2.npz')
-# npzfile = load('verification_results_300000_0.001.npz')
-# eom = CR3BP(primary=earth, secondary=moon)
-# # npzfile1 = load('threebody_BFGS_2.npz')
-# solutions = npzfile['arr_0']
-# coords = npzfile['arr_1']
-# coords /= eom.normalized_units['TimeUnit']
-# feasibility = npzfile['arr_2']
-# optimality = npzfile['arr_3']
-
+npzfile = load('threebody_SLSQP.npz')
+npzfile1 = load('threebody_SLSQP_2.npz')
 
 solutions = concatenate((npzfile['arr_0'], npzfile1['arr_0']), axis=0)
-# eom = CR3BP(primary=earth, secondary=moon)
 coords = concatenate((npzfile['arr_1'], npzfile1['arr_1']), axis=0)
-# print(coords)
 feasibility = concatenate((npzfile['arr_2'], npzfile1['arr_2']), axis=0)
 optimality = concatenate((npzfile['arr_3'], npzfile1['arr_3']), axis=0)
 
@@ -87,10 +73,7 @@ def objective_function(control) -> float:
 
 
 for i in range(len(feasible_solutions)):
-
-
     initial_control = concatenate((optimal_solutions[i], array(optimal_coords[i])))
-    # initial_control = optimal_solutions[i]
 
     def simulation_3b(control: ndarray) -> ndarray:
             eom = CR3BP(primary=earth, secondary=moon)
@@ -164,4 +147,4 @@ for i in range(len(feasible_solutions)):
             final_feasibility[i] = False
             final_optimality[i] = False
 
-savez('verification_results_250000_1e-4', final_solution_history, feasible_coords, final_feasibility, final_optimality)
+savez('verification_results_300000_1e-4', final_solution_history, feasible_coords, final_feasibility, final_optimality)
